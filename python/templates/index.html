@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cerebral Palsy Prediction Pipeline</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 1rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            background: rgba(15, 23, 42, 0.4);
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-subtext {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-preview {
+            display: none;
+            margin-top: 2rem;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .filename {
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Loading State */
+        .loading-container {
+            display: none;
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-left-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        .progress-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            text-align: left;
+            margin-top: 1.5rem;
+            background: rgba(0,0,0,0.2);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .step.active {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .step.done {
+            color: var(--success);
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Results State */
+        .results-container {
+            display: none;
+            margin-top: 2rem;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .prediction-card {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .prediction-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+        }
+
+        .prediction-card.healthy::before { background: var(--success); }
+        .prediction-card.cp::before { background: var(--danger); }
+
+        .result-title {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .result-value {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+        }
+
+        .healthy .result-value { color: var(--success); }
+        .cp .result-value { color: var(--danger); }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            text-align: left;
+        }
+
+        .stat-box {
+            background: rgba(255,255,255,0.05);
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-val {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .reset-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            margin-top: 1rem;
+        }
+        .reset-btn:hover {
+            background: rgba(255,255,255,0.1);
+            transform: none;
+            box-shadow: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>CP Prediction Pipeline</h1>
+            <p class="subtitle">Upload a raw infant movement video for AI-powered screening</p>
+        </header>
+
+        <main class="glass-panel">
+            
+            <form id="uploadForm">
+                <div class="upload-area" id="dropZone">
+                    <input type="file" id="videoInput" accept="video/mp4,video/avi,video/quicktime" required>
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">Drag & Drop video here</div>
+                    <div class="upload-subtext">or click to browse files (MP4, AVI, MOV)</div>
+                </div>
+
+                <div class="file-preview" id="filePreview">
+                    <div class="file-info">
+                        <div class="filename">
+                            <span style="color:var(--primary)">🎥</span>
+                            <span id="fileNameDisplay">video.mp4</span>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn" id="analyzeBtn">
+                        Analyze Video Movement
+                    </button>
+                </div>
+            </form>
+
+            <div class="loading-container" id="loadingContainer">
+                <div class="spinner"></div>
+                <h3 id="loadingStatus">Processing Video...</h3>
+                <p style="color:var(--text-muted); font-size:0.9rem; margin-top:0.5rem;">This may take a few minutes depending on video length.</p>
+                
+                <div class="progress-steps">
+                    <div class="step active" id="step1">✓ Extracting body pose (MediaPipe)</div>
+                    <div class="step" id="step2">✓ Preprocessing & filtering missing joints</div>
+                    <div class="step" id="step3">✓ Spine alignment & rotation normalisation</div>
+                    <div class="step" id="step4">✓ Extracting joint kinematics & orientation features</div>
+                    <div class="step" id="step5">✓ Running Logistic Regression fusion classifier</div>
+                </div>
+            </div>
+
+            <div class="results-container" id="resultsContainer">
+                <div class="prediction-card healthy" id="predictionCard">
+                    <div class="result-title">Screening Result</div>
+                    <div class="result-value" id="predictionResult">Healthy</div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-label">Confidence (Healthy)</div>
+                            <div class="stat-val" id="confHealthy">98.2%</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Confidence (CP)</div>
+                            <div class="stat-val" id="confCP">1.8%</div>
+                        </div>
+                        <div class="stat-box" style="grid-column: span 2;">
+                            <div class="stat-label">Frames Analyzed</div>
+                            <div class="stat-val" id="framesProcessed">450 frames</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn reset-btn" id="resetBtn">Analyze Another Video</button>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const videoInput = document.getElementById('videoInput');
+        const filePreview = document.getElementById('filePreview');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const uploadForm = document.getElementById('uploadForm');
+        
+        const loadingContainer = document.getElementById('loadingContainer');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const predictionCard = document.getElementById('predictionCard');
+        
+        // Drag and drop handling
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            videoInput.files = files;
+            handleFiles();
+        });
+
+        videoInput.addEventListener('change', handleFiles);
+
+        function handleFiles() {
+            if (videoInput.files.length > 0) {
+                const file = videoInput.files[0];
+                fileNameDisplay.textContent = file.name;
+                dropZone.style.display = 'none';
+                filePreview.style.display = 'block';
+            }
+        }
+        
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            resultsContainer.style.display = 'none';
+            dropZone.style.display = 'block';
+            filePreview.style.display = 'none';
+            videoInput.value = '';
+        });
+
+        // Form submission
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (videoInput.files.length === 0) return;
+            
+            const file = videoInput.files[0];
+            const formData = new FormData();
+            formData.append('video', file);
+            
+            // UI State change
+            filePreview.style.display = 'none';
+            loadingContainer.style.display = 'block';
+            
+            // Simulate progress steps for UX
+            const steps = [
+                document.getElementById('step1'),
+                document.getElementById('step2'),
+                document.getElementById('step3'),
+                document.getElementById('step4'),
+                document.getElementById('step5')
+            ];
+            
+            let currentStep = 0;
+            const progressInterval = setInterval(() => {
+                if (currentStep < 4) {
+                    steps[currentStep].classList.remove('active');
+                    steps[currentStep].classList.add('done');
+                    currentStep++;
+                    steps[currentStep].classList.add('active');
+                }
+            }, 5000); // Shift step every 5 seconds roughly
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                clearInterval(progressInterval);
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Server error occurred');
+                }
+                
+                // Process results
+                loadingContainer.style.display = 'none';
+                resultsContainer.style.display = 'block';
+                
+                document.getElementById('predictionResult').textContent = data.prediction;
+                document.getElementById('confHealthy').textContent = data.confidence_healthy.toFixed(1) + '%';
+                document.getElementById('confCP').textContent = data.confidence_cp.toFixed(1) + '%';
+                document.getElementById('framesProcessed').textContent = data.frames_processed + ' frames';
+                
+                predictionCard.className = 'prediction-card';
+                if (data.prediction === 'Cerebral Palsy') {
+                    predictionCard.classList.add('cp');
+                } else {
+                    predictionCard.classList.add('healthy');
+                }
+                
+            } catch (err) {
+                clearInterval(progressInterval);
+                loadingContainer.style.display = 'none';
+                filePreview.style.display = 'block';
+                alert('Error: ' + err.message);
+            }
+        });
+    </script>
+</body>
+</html>
